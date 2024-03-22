@@ -4,13 +4,19 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
+	"os"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/zitadel/oidc/v3/example/server/storage"
 	"github.com/zitadel/oidc/v3/pkg/op"
 	"golang.org/x/oauth2"
-	"golang.org/x/oauth2/github"
 )
+
+var BitsEndpoint = oauth2.Endpoint{
+	AuthURL:       "https://bits.linode.com/login/oauth/authorize",
+	TokenURL:      "https://bits.linode.com/login/oauth/access_token",
+	DeviceAuthURL: "https://bits.linode.com/login/device/code",
+}
 
 type login struct {
 	authenticate authenticate
@@ -25,11 +31,11 @@ func NewLogin(authenticate authenticate, callback func(context.Context, string) 
 		callback:     callback,
 	}
 	l.oauth2Conf = &oauth2.Config{
-		ClientID:     "ef2a2bdb6f8888ccdf6c",
-		ClientSecret: "f1e3d845909e3c9ae8092acb1a71536076e27318",
+		ClientID:     os.Getenv("GH_CLIENT_ID"),
+		ClientSecret: os.Getenv("GH_CLIENT_SECRET"),
 		RedirectURL:  "http://localhost:9998/login/github/callback",
 		Scopes:       []string{"user", "user:email"},
-		Endpoint:     github.Endpoint,
+		Endpoint:     BitsEndpoint,
 	}
 	l.createRouter(issuerInterceptor)
 	return l
