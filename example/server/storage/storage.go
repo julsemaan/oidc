@@ -649,7 +649,6 @@ func (s *Storage) setUserinfo(ctx context.Context, userInfo *oidc.UserInfo, user
 	if user == nil {
 		return fmt.Errorf("user not found")
 	}
-	spew.Dump(scopes)
 	for _, scope := range scopes {
 		switch scope {
 		case oidc.ScopeOpenID:
@@ -660,7 +659,8 @@ func (s *Storage) setUserinfo(ctx context.Context, userInfo *oidc.UserInfo, user
 		case oidc.ScopeProfile:
 			userInfo.PreferredUsername = user.Username
 			userInfo.Name = user.FirstName
-			userInfo.AppendClaims("roles", "ORGS/TEAMS GO HERE")
+			userInfo.AppendClaims("org_memberships", user.OrgMemberships)
+			userInfo.AppendClaims("roles", user.Roles)
 		case oidc.ScopePhone:
 			userInfo.PhoneNumber = user.Phone
 			userInfo.PhoneNumberVerified = user.PhoneVerified
@@ -929,17 +929,28 @@ func (s *Storage) SetRequestAuthenticated(info *GhUserInfo, id string) error {
 
 	username := info.Login
 
+	user := &User{
+		ID:             username,
+		FirstName:      info.Name,
+		Email:          info.Email,
+		OrgMemberships: make([]OrgMembership, 0),
+		Roles:          make([]string, 0),
+	}
+
+	for _, userOrg := range info.UserOrgs {
+		user.OrgMemberships = append(user.OrgMemberships, OrgMembership{Name: userOrg.OrgID, TeamMemberships: strings.Join(userOrg.TeamMemberships, ",")})
+		for _, team := range userOrg.TeamMemberships {
+			user.Roles = append(user.Roles, fmt.Sprintf("%s.%s", userOrg.OrgID, team))
+		}
+	}
+
+	spew.Dump(user)
+
 	//TODO: THIS IS WHERE THE ORG/TEAMS NEED TO BE FILLED IN
 	s.userStore.SetUserByID(
 		username,
-		&User{
-			ID:        username,
-			FirstName: info.Name,
-			Email:     info.Email,
-		},
+		user,
 	)
-
-	spew.Dump(info)
 
 	request.UserID = username
 

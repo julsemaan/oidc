@@ -8,9 +8,16 @@ import (
 )
 
 type GhUserInfo struct {
-	Login string `json:"login"`
-	Email string `json"email"`
-	Name  string `json:"name"`
+	Login            string `json:"login"`
+	Email            string `json:"email"`
+	Name             string `json:"name"`
+	OrganizationsUrl string `json:"organizations_url"`
+	UserOrgs         []*GhUserOrgs
+}
+
+type GhUserOrgs struct {
+	OrgID           string   `json:"login"`
+	TeamMemberships []string // This is built manually, not directly from unmarshaling
 }
 
 type User struct {
@@ -25,7 +32,13 @@ type User struct {
 	PhoneVerified     bool
 	PreferredLanguage language.Tag
 	IsAdmin           bool
-	Roles             string
+	OrgMemberships    []OrgMembership
+	Roles             []string
+}
+
+type OrgMembership struct {
+	Name            string `json:"name"`
+	TeamMemberships string `json:"team_memberships"`
 }
 
 type Service struct {
