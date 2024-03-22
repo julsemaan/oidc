@@ -46,7 +46,7 @@ type authenticate interface {
 }
 
 func (l *login) loginHandler(w http.ResponseWriter, r *http.Request) {
-	http.Redirect(w, r, l.oauth2Conf.AuthCodeURL("state", oauth2.AccessTypeOffline), http.StatusFound)
+	http.Redirect(w, r, l.oauth2Conf.AuthCodeURL(r.FormValue(queryAuthRequestID), oauth2.AccessTypeOffline), http.StatusFound)
 }
 
 func renderLogin(w http.ResponseWriter, id string, err error) {
@@ -87,5 +87,5 @@ func (l *login) checkLoginHandler(w http.ResponseWriter, r *http.Request) {
 
 	spew.Dump(loginInfo)
 
-	http.Redirect(w, r, l.callback(r.Context(), loginInfo.Login), http.StatusFound)
+	http.Redirect(w, r, l.callback(r.Context(), r.FormValue("state")), http.StatusFound)
 }
