@@ -5,8 +5,8 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"github.com/davecgh/go-spew/spew"
 	"github.com/go-chi/chi/v5"
+	"github.com/zitadel/oidc/v3/example/server/storage"
 	"github.com/zitadel/oidc/v3/pkg/op"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/github"
@@ -43,6 +43,7 @@ func (l *login) createRouter(issuerInterceptor *op.IssuerInterceptor) {
 
 type authenticate interface {
 	CheckUsernamePassword(username, password, id string) error
+	SetRequestAuthenticated(info *storage.GhUserInfo, id string) error
 }
 
 func (l *login) loginHandler(w http.ResponseWriter, r *http.Request) {
@@ -68,24 +69,25 @@ func (l *login) checkLoginHandler(w http.ResponseWriter, r *http.Request) {
 	tok, err := l.oauth2Conf.Exchange(context.Background(), code)
 	if err != nil {
 		renderLogin(w, err.Error(), err)
+		return
 	}
 	ts := l.oauth2Conf.TokenSource(context.Background(), tok)
 	client := oauth2.NewClient(context.Background(), ts)
 	resp, err := client.Get("https://api.github.com/user")
 	if err != nil {
 		renderLogin(w, err.Error(), err)
+		return
 	}
 
-	loginInfo := struct {
-		Login string `json:"login"`
-	}{}
+	loginInfo := storage.GhUserInfo{}
 
 	err = json.NewDecoder(resp.Body).Decode(&loginInfo)
 	if err != nil {
 		renderLogin(w, err.Error(), err)
+		return
 	}
 
-	spew.Dump(loginInfo)
+	l.authenticate.SetRequestAuthenticated(&loginInfo, r.FormValue("state"))
 
 	http.Redirect(w, r, l.callback(r.Context(), r.FormValue("state")), http.StatusFound)
 }

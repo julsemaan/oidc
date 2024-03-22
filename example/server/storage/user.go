@@ -7,6 +7,12 @@ import (
 	"golang.org/x/text/language"
 )
 
+type GhUserInfo struct {
+	Login string `json:"login"`
+	Email string `json"email"`
+	Name  string `json:"name"`
+}
+
 type User struct {
 	ID                string
 	Username          string
@@ -30,6 +36,7 @@ type UserStore interface {
 	GetUserByID(string) *User
 	GetUserByUsername(string) *User
 	ExampleClientID() string
+	SetUserByID(string, *User)
 }
 
 type userStore struct {
@@ -79,12 +86,16 @@ func (u userStore) GetUserByID(id string) *User {
 	return u.users[id]
 }
 
+func (u userStore) SetUserByID(id string, user *User) {
+	//TODO MUTEX
+	u.users[id] = user
+}
+
 func (u userStore) GetUserByUsername(username string) *User {
-	// CALL TO GET ORGS AND TEAMS DEETS GOES HERE
-	return &User{
-		ID:       username,
-		Username: username,
-		Roles:    "CNS,kpp-dev",
+	for _, user := range u.users {
+		if user.Username == username {
+			return user
+		}
 	}
 	return nil
 }

@@ -11,6 +11,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/davecgh/go-spew/spew"
 	jose "github.com/go-jose/go-jose/v3"
 	"github.com/google/uuid"
 
@@ -648,6 +649,7 @@ func (s *Storage) setUserinfo(ctx context.Context, userInfo *oidc.UserInfo, user
 	if user == nil {
 		return fmt.Errorf("user not found")
 	}
+	spew.Dump(scopes)
 	for _, scope := range scopes {
 		switch scope {
 		case oidc.ScopeOpenID:
@@ -657,10 +659,8 @@ func (s *Storage) setUserinfo(ctx context.Context, userInfo *oidc.UserInfo, user
 			userInfo.EmailVerified = oidc.Bool(user.EmailVerified)
 		case oidc.ScopeProfile:
 			userInfo.PreferredUsername = user.Username
-			userInfo.Name = user.FirstName + " " + user.LastName
-			userInfo.FamilyName = user.LastName
-			userInfo.GivenName = user.FirstName
-			userInfo.Locale = oidc.NewLocale(user.PreferredLanguage)
+			userInfo.Name = user.FirstName
+			userInfo.AppendClaims("roles", "ORGS/TEAMS GO HERE")
 		case oidc.ScopePhone:
 			userInfo.PhoneNumber = user.Phone
 			userInfo.PhoneNumberVerified = user.PhoneVerified
@@ -917,4 +917,32 @@ func (s *Storage) ClientCredentialsTokenRequest(ctx context.Context, clientID st
 		Audience: []string{clientID},
 		Scopes:   scopes,
 	}, nil
+}
+
+func (s *Storage) SetRequestAuthenticated(info *GhUserInfo, id string) error {
+	s.lock.Lock()
+	defer s.lock.Unlock()
+	request, ok := s.authRequests[id]
+	if !ok {
+		return fmt.Errorf("request not found")
+	}
+
+	username := info.Login
+
+	//TODO: THIS IS WHERE THE ORG/TEAMS NEED TO BE FILLED IN
+	s.userStore.SetUserByID(
+		username,
+		&User{
+			ID:        username,
+			FirstName: info.Name,
+			Email:     info.Email,
+		},
+	)
+
+	spew.Dump(info)
+
+	request.UserID = username
+
+	request.done = true
+	return nil
 }
