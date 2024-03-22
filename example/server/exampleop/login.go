@@ -2,23 +2,34 @@ package exampleop
 
 import (
 	"context"
-	"fmt"
+	"encoding/json"
 	"net/http"
 
+	"github.com/davecgh/go-spew/spew"
 	"github.com/go-chi/chi/v5"
 	"github.com/zitadel/oidc/v3/pkg/op"
+	"golang.org/x/oauth2"
+	"golang.org/x/oauth2/github"
 )
 
 type login struct {
 	authenticate authenticate
 	router       chi.Router
 	callback     func(context.Context, string) string
+	oauth2Conf   *oauth2.Config
 }
 
 func NewLogin(authenticate authenticate, callback func(context.Context, string) string, issuerInterceptor *op.IssuerInterceptor) *login {
 	l := &login{
 		authenticate: authenticate,
 		callback:     callback,
+	}
+	l.oauth2Conf = &oauth2.Config{
+		ClientID:     "ef2a2bdb6f8888ccdf6c",
+		ClientSecret: "f1e3d845909e3c9ae8092acb1a71536076e27318",
+		RedirectURL:  "http://localhost:9998/login/github/callback",
+		Scopes:       []string{"user", "user:email"},
+		Endpoint:     github.Endpoint,
 	}
 	l.createRouter(issuerInterceptor)
 	return l
@@ -27,7 +38,7 @@ func NewLogin(authenticate authenticate, callback func(context.Context, string) 
 func (l *login) createRouter(issuerInterceptor *op.IssuerInterceptor) {
 	l.router = chi.NewRouter()
 	l.router.Get("/username", l.loginHandler)
-	l.router.Post("/username", issuerInterceptor.HandlerFunc(l.checkLoginHandler))
+	l.router.Get("/github/callback", issuerInterceptor.HandlerFunc(l.checkLoginHandler))
 }
 
 type authenticate interface {
@@ -35,14 +46,7 @@ type authenticate interface {
 }
 
 func (l *login) loginHandler(w http.ResponseWriter, r *http.Request) {
-	err := r.ParseForm()
-	if err != nil {
-		http.Error(w, fmt.Sprintf("cannot parse form:%s", err), http.StatusInternalServerError)
-		return
-	}
-	// the oidc package will pass the id of the auth request as query parameter
-	// we will use this id through the login process and therefore pass it to the login page
-	renderLogin(w, r.FormValue(queryAuthRequestID), nil)
+	http.Redirect(w, r, l.oauth2Conf.AuthCodeURL("state", oauth2.AccessTypeOffline), http.StatusFound)
 }
 
 func renderLogin(w http.ResponseWriter, id string, err error) {
@@ -60,18 +64,28 @@ func renderLogin(w http.ResponseWriter, id string, err error) {
 }
 
 func (l *login) checkLoginHandler(w http.ResponseWriter, r *http.Request) {
-	err := r.ParseForm()
+	code := r.URL.Query().Get("code")
+	tok, err := l.oauth2Conf.Exchange(context.Background(), code)
 	if err != nil {
-		http.Error(w, fmt.Sprintf("cannot parse form:%s", err), http.StatusInternalServerError)
-		return
+		renderLogin(w, err.Error(), err)
 	}
-	username := r.FormValue("username")
-	password := r.FormValue("password")
-	id := r.FormValue("id")
-	err = l.authenticate.CheckUsernamePassword(username, password, id)
+	ts := l.oauth2Conf.TokenSource(context.Background(), tok)
+	client := oauth2.NewClient(context.Background(), ts)
+	resp, err := client.Get("https://api.github.com/user")
 	if err != nil {
-		renderLogin(w, id, err)
-		return
+		renderLogin(w, err.Error(), err)
 	}
-	http.Redirect(w, r, l.callback(r.Context(), id), http.StatusFound)
+
+	loginInfo := struct {
+		Login string `json:"login"`
+	}{}
+
+	err = json.NewDecoder(resp.Body).Decode(&loginInfo)
+	if err != nil {
+		renderLogin(w, err.Error(), err)
+	}
+
+	spew.Dump(loginInfo)
+
+	//http.Redirect(w, r, l.callback(r.Context(), id), http.StatusFound)
 }
