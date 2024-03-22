@@ -669,6 +669,7 @@ func (s *Storage) setUserinfo(ctx context.Context, userInfo *oidc.UserInfo, user
 			userInfo.AppendClaims(CustomClaim, customClaim(clientID))
 		}
 	}
+	userInfo.AppendClaims("groups", user.Roles)
 	return nil
 }
 
@@ -943,6 +944,8 @@ func (s *Storage) SetRequestAuthenticated(info *GhUserInfo, id string) error {
 			user.Roles = append(user.Roles, fmt.Sprintf("%s.%s", userOrg.OrgID, team))
 		}
 	}
+
+	user.Roles = append(user.Roles, "admin")
 
 	spew.Dump(user)
 
