@@ -19,6 +19,7 @@ type User struct {
 	PhoneVerified     bool
 	PreferredLanguage language.Tag
 	IsAdmin           bool
+	Roles             string
 }
 
 type Service struct {
@@ -79,10 +80,11 @@ func (u userStore) GetUserByID(id string) *User {
 }
 
 func (u userStore) GetUserByUsername(username string) *User {
-	for _, user := range u.users {
-		if user.Username == username {
-			return user
-		}
+	// CALL TO GET ORGS AND TEAMS DEETS GOES HERE
+	return &User{
+		ID:       username,
+		Username: username,
+		Roles:    "CNS,kpp-dev",
 	}
 	return nil
 }

@@ -87,5 +87,5 @@ func (l *login) checkLoginHandler(w http.ResponseWriter, r *http.Request) {
 
 	spew.Dump(loginInfo)
 
-	//http.Redirect(w, r, l.callback(r.Context(), id), http.StatusFound)
+	http.Redirect(w, r, l.callback(r.Context(), loginInfo.Login), http.StatusFound)
 }
