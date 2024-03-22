@@ -10,6 +10,7 @@ import (
 	"strings"
 	"sync/atomic"
 	"time"
+	"crypto/tls"
 
 	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
@@ -24,6 +25,12 @@ var (
 	callbackPath = "/auth/callback"
 	key          = []byte("test1234test1234")
 )
+
+func init() {
+    http.DefaultTransport.(*http.Transport).TLSClientConfig = &tls.Config{
+			InsecureSkipVerify: true,
+		}
+}
 
 func main() {
 	clientID := os.Getenv("CLIENT_ID")
